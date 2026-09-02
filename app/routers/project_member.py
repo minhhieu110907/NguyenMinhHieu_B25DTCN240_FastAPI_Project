@@ -1,4 +1,3 @@
-import logging
 from typing import List
 from fastapi import APIRouter, Depends, status, Path, Response
 from sqlalchemy.orm import Session
@@ -12,8 +11,6 @@ from app.security.scopes import Scope
 from app.models.users import User
 from app.schemas.project_member import ProjectMemberCreate, ProjectMemberResponse
 from app.services.project_member_services import ProjectMemberService
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects/{project_id}/members", tags=["Project Members"])
 
@@ -50,11 +47,7 @@ def add_project_member(
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectMemberService(db)
-    new_member = service.add_member_by_email(project_id=project_id, payload=payload)
-    logger.info(
-        f"AUDIT | User [ID: {current_user.id}] added User [ID: {new_member.user_id}] to Project [ID: {project_id}] with Role ID: {payload.project_role_id}"
-    )
-    return new_member
+    return service.add_member_by_email(project_id=project_id, payload=payload,current_user=current_user)
 
 
 @router.delete(
@@ -72,8 +65,5 @@ def remove_project_member(
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectMemberService(db)
-    service.remove_member_safely(project_id, user_id)
-    logger.info(
-        f"AUDIT | User [ID: {current_user.id}] removed Member [User ID: {user_id}] from Project [ID: {project_id}]"
-    )
+    service.remove_member_safely(project_id, user_id, current_user=current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

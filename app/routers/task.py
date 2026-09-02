@@ -1,4 +1,3 @@
-import logging
 from typing import List, Optional, Literal
 from fastapi import APIRouter, Depends, status, Path, Query, Response
 from sqlalchemy.orm import Session
@@ -15,8 +14,6 @@ from app.schemas.task import TaskCreate, TaskUpdate, TaskResponse
 from app.schemas.comment import CommentCreate, CommentResponse
 from app.services.task_services import TaskService
 
-logger = logging.getLogger(__name__)
-
 router = APIRouter(tags=["Tasks"])
 
 
@@ -24,10 +21,11 @@ router = APIRouter(tags=["Tasks"])
     "/projects/{project_id}/tasks",
     response_model=TaskResponse,
     status_code=status.HTTP_201_CREATED,
-    description=(""
+    description=(
         "For `due_date`, use the format "
         "`YYYY-MM-DDTHH:MM:SS`.\n\n"
-        "Example: `2026-08-30T15:30:00`."),
+        "Example: `2026-08-30T15:30:00`."
+    ),
     dependencies=[
         Depends(RequireScopes({Scope.TASK_CREATE})),
         Depends(RequireProjectRole(["OWNER", "MEMBER"]))
@@ -41,9 +39,7 @@ def create_task(
 ):
     payload.project_id = project_id
     service = TaskService(db)
-    task = service.create_task(payload, current_user.id)
-    logger.info(f"AUDIT | User [ID: {current_user.id}] created Task [ID: {task.id}] in Project [ID: {project_id}]")
-    return task
+    return service.create_task(payload, current_user=current_user)
 
 
 @router.get(
@@ -94,10 +90,11 @@ def get_task_detail(
 @router.patch(
     "/tasks/{task_id}",
     response_model=TaskResponse,
-    description=(""
-            "For `due_date`, use the format "
-            "`YYYY-MM-DDTHH:MM:SS`.\n\n"
-            "Example: `2026-08-30T15:30:00`."),
+    description=(
+        "For `due_date`, use the format "
+        "`YYYY-MM-DDTHH:MM:SS`.\n\n"
+        "Example: `2026-08-30T15:30:00`."
+    ),
     dependencies=[Depends(RequireScopes({Scope.TASK_UPDATE}))]
 )
 def update_task(
@@ -107,9 +104,7 @@ def update_task(
     db: Session = Depends(get_db)
 ):
     service = TaskService(db)
-    updated_task = service.update_task_with_matrix(task, payload, current_user)
-    logger.info(f"AUDIT | User [ID: {current_user.id}] updated Task [ID: {task.id}]")
-    return updated_task
+    return service.update_task_with_matrix(task, payload, current_user=current_user)
 
 
 @router.delete(
@@ -123,8 +118,7 @@ def delete_task(
     db: Session = Depends(get_db)
 ):
     service = TaskService(db)
-    service.delete_task(task)
-    logger.info(f"AUDIT | User [ID: {current_user.id}] deleted Task [ID: {task.id}]")
+    service.delete_task(task, current_user=current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -142,9 +136,7 @@ def create_comment(
 ):
     payload.task_id = task.id
     service = TaskService(db)
-    comment = service.create_comment(payload, current_user.id)
-    logger.info(f"AUDIT | User [ID: {current_user.id}] commented on Task [ID: {task.id}]")
-    return comment
+    return service.create_comment(payload, current_user=current_user)
 
 
 @router.get(

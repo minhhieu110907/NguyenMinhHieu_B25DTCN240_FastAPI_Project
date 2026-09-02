@@ -1,9 +1,13 @@
+import logging
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.repositories.project_repo import ProjectRepository
 from app.models.projects import Project
+from app.models.users import User
 from app.core.exceptions import NotFoundException
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectService:
@@ -15,26 +19,49 @@ class ProjectService:
         self, 
         name: str, 
         description: Optional[str], 
-        creator_id: int, 
+        current_user: User, 
         owner_role_id: int = 1
     ) -> Project:
-        """Create the project and assign the OWNER role to its creator."""
+        """Tạo project, gán OWNER và ghi Activity Log trong 1 transaction."""
         try:
+            # 1. Tạo project
             project = self.repo.create(
                 name=name,
                 description=description,
-                created_by=creator_id
+                created_by=current_user.id
             )
+            # 2. Gán quyền OWNER cho creator
             self.repo.add_member(
                 project_id=project.id,
-                user_id=creator_id,
+                user_id=current_user.id,
                 project_role_id=owner_role_id
             )
+            # 3. Ghi Activity Log vào DB Session
+            self.repo.add_activity_log(
+                user_id=current_user.id,
+                actor_role=getattr(current_user, "role", "USER"),
+                action="PROJECT_CREATE",
+                entity_type="PROJECT",
+                entity_id=project.id,
+                payload={"name": project.name, "description": project.description}
+            )
+
+            # 4. Commit toàn bộ
             self.db.commit()
             self.db.refresh(project)
+
+            # 5. In Console Log SAU KHI COMMIT THÀNH CÔNG
+            logger.info(
+                f"AUDIT | User [ID: {current_user.id}] created Project "
+                f"[ID: {project.id}, Name: '{project.name}']"
+            )
             return project
+
         except Exception as e:
             self.db.rollback()
+            logger.error(
+                f"ERROR | Failed to create project '{name}' by User [ID: {current_user.id}]: {str(e)}"
+            )
             raise e
 
     def get_project_detail(self, project_id: int) -> Project:
@@ -60,28 +87,72 @@ class ProjectService:
     def update_project(
         self, 
         project_id: int, 
+        current_user: User,
         name: Optional[str] = None, 
         description: Optional[str] = None
     ) -> Project:
         project = self.get_project_detail(project_id)
         try:
+            # 1. Update Project
             updated_project = self.repo.update(
                 project=project,
                 name=name,
                 description=description
             )
+            # 2. Ghi Activity Log
+            self.repo.add_activity_log(
+                user_id=current_user.id,
+                actor_role=getattr(current_user, "role", "USER"),
+                action="PROJECT_UPDATE",
+                entity_type="PROJECT",
+                entity_id=project_id,
+                payload={"name": name, "description": description}
+            )
+
+            # 3. Commit
             self.db.commit()
             self.db.refresh(updated_project)
+
+            # 4. Console log
+            logger.info(
+                f"AUDIT | User [ID: {current_user.id}] updated Project [ID: {project_id}]"
+            )
             return updated_project
+
         except Exception as e:
             self.db.rollback()
+            logger.error(
+                f"ERROR | Failed to update Project [ID: {project_id}] by User [ID: {current_user.id}]: {str(e)}"
+            )
             raise e
 
-    def soft_delete_project(self, project_id: int) -> None:
+    def soft_delete_project(self, project_id: int, current_user: User) -> None:
         project = self.get_project_detail(project_id)
         try:
+            # 1. Soft delete
             self.repo.soft_delete(project)
+
+            # 2. Ghi Activity Log
+            self.repo.add_activity_log(
+                user_id=current_user.id,
+                actor_role=getattr(current_user, "role", "USER"),
+                action="PROJECT_DELETE",
+                entity_type="PROJECT",
+                entity_id=project_id,
+                payload={"project_name": project.name}
+            )
+
+            # 3. Commit
             self.db.commit()
+
+            # 4. Console log
+            logger.info(
+                f"AUDIT | User [ID: {current_user.id}] soft-deleted Project [ID: {project_id}]"
+            )
+
         except Exception as e:
             self.db.rollback()
+            logger.error(
+                f"ERROR | Failed to delete Project [ID: {project_id}] by User [ID: {current_user.id}]: {str(e)}"
+            )
             raise e

@@ -7,13 +7,33 @@ from app.models.projects import Project
 from app.models.project_members import ProjectMember
 from app.models.tasks import Task
 from app.models.roles import Role
-
+from app.models.activity_logs import ActivityLog
 class ProjectRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
+        
+    def add_activity_log(
+        self,
+        user_id: int,
+        actor_role: str,
+        action: str,
+        entity_type: str,
+        entity_id: int,
+        payload: Optional[dict] = None
+    ) -> None:
+        """Ghi log vào session (Chạy trong RAM, không sinh I/O network riêng)."""
+        log = ActivityLog(
+            user_id=user_id,
+            actor_role=actor_role,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            payload=payload
+        )
+        self.db.add(log)
+        self.db.flush()
 
     # PROJECT MANAGEMENT & SOFT DELETE
-
     def get_by_id(self, project_id: int, include_deleted: bool = False) -> Optional[Project]:
         """Get project information by id,skip deleted project"""
         query = self.db.query(Project).filter(Project.id == project_id)

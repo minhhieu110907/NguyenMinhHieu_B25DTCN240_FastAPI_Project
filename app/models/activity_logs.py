@@ -14,6 +14,7 @@ class ActivityLog(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+    actor_role: Mapped[str] = mapped_column(String(20), default="USER", index=True) # "USER", "ADMIN", "SYSTEM"
     action: Mapped[str] = mapped_column(String(50))  # CREATE, UPDATE, DELETE
     entity_type: Mapped[str] = mapped_column(String(50))  # PROJECT, TASK, MEMBER
     entity_id: Mapped[int] = mapped_column(Integer)
@@ -22,5 +23,5 @@ class ActivityLog(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    __table_args__ = (Index("ix_activity_logs_entity", "entity_type", "entity_id"))
+    __table_args__ = (Index("ix_activity_logs_entity", "entity_type", "entity_id"),)
     

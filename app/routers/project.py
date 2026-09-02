@@ -1,19 +1,14 @@
-import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, status, Path, Query, Response
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.dependencies.dependencies import get_current_user
-from app.dependencies.dependencies import RequireScopes, RequireCurrentScopes
-
+from app.dependencies.dependencies import get_current_user, RequireScopes, RequireCurrentScopes
 from app.dependencies.project_role import RequireProjectRole
 from app.security.scopes import Scope
 from app.models.users import User
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.services.project_services import ProjectService
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
@@ -30,13 +25,11 @@ def create_project(
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
-    project = service.create_project_with_owner(
-        name=payload.name, description=payload.description, creator_id=current_user.id
+    return service.create_project_with_owner(
+        name=payload.name, 
+        description=payload.description, 
+        current_user=current_user
     )
-    logger.info(
-        f"AUDIT | User [ID: {current_user.id}] created Project [ID: {project.id}, Name: '{project.name}']"
-    )
-    return project
 
 
 @router.get(
@@ -53,7 +46,10 @@ def get_my_projects(
 ):
     service = ProjectService(db)
     return service.list_my_projects(
-        user_id=current_user.id, search=search, skip=skip, limit=limit
+        user_id=current_user.id, 
+        search=search, 
+        skip=skip, 
+        limit=limit
     )
 
 
@@ -88,13 +84,12 @@ def update_project(
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
-    updated_project = service.update_project(
-        project_id=project_id, name=payload.name, description=payload.description
+    return service.update_project(
+        project_id=project_id, 
+        current_user=current_user,
+        name=payload.name, 
+        description=payload.description
     )
-    logger.info(
-        f"AUDIT | User [ID: {current_user.id}] updated Project [ID: {project_id}]"
-    )
-    return updated_project
 
 
 @router.delete(
@@ -111,8 +106,5 @@ def delete_project(
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
-    service.soft_delete_project(project_id)
-    logger.info(
-        f"AUDIT | User [ID: {current_user.id}] soft-deleted Project [ID: {project_id}]"
-    )
+    service.soft_delete_project(project_id, current_user=current_user)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

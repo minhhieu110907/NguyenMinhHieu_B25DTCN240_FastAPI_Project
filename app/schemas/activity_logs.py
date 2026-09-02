@@ -8,6 +8,7 @@ EntityType = Annotated[str, Field(pattern="^(PROJECT|TASK|MEMBER)$")]
 class ActivityLogResponse(BaseModel):
     id: int
     user_id: int
+    actor_role: str
     action: ActionType
     entity_type: EntityType
     entity_id: int

@@ -4,12 +4,12 @@ from app.core.config import settings
 from app.core.rate_limit import check_rate_limit
 from app.schemas.auth import LoginRequest
 
-async def get_client_ip(request: Request) -> str:
+def get_client_ip(request: Request) -> str:
     if settings.USE_TRUSTED_PROXY:
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            return real_ip.strip()
+        
     if request.client and request.client.host:
         return request.client.host
 
@@ -17,7 +17,7 @@ async def get_client_ip(request: Request) -> str:
 
 def rate_limit_ip_factory(prefix: str, limit: int, window: int) -> Callable:
     async def dependency(request: Request) -> None:
-        ip = await get_client_ip(request)
+        ip = get_client_ip(request)
         key = f"rl:{prefix}:ip:{ip}"
         await check_rate_limit(key=key, limit=limit, window=window)
     return dependency

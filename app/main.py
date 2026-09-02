@@ -15,6 +15,7 @@ from app.routers.users import router as user_router
 from app.routers.project import router as project_router
 from app.routers.project_member import router as project_member_router
 from app.routers.task import router as task_router
+from app.routers.attachments import router as attachment_router
 
 from app.core.exceptions import AppException
 from app.core.handlers import app_exception_handler,general_exception_handler
@@ -44,6 +45,7 @@ app.include_router(user_router)
 app.include_router(project_router)
 app.include_router(project_member_router)
 app.include_router(task_router)
+app.include_router(attachment_router)
 
 @app.get("/health")
 def welcome_to_my_system():
