@@ -33,7 +33,7 @@ router = APIRouter(tags=["Tasks"])
 )
 def create_task(
     payload: TaskCreate,
-    project_id: int = Path(..., description="ID dự án"),
+    project_id: int = Path(..., description="Project ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -51,8 +51,8 @@ def create_task(
     ]
 )
 def get_project_tasks(
-    project_id: int = Path(..., description="ID dự án"),
-    search: Optional[str] = Query(None, description="Tìm kiếm theo tiêu đề"),
+    project_id: int = Path(..., description="Project ID"),
+    search: Optional[str] = Query(None, description="Search by task title"),
     status: Optional[str] = Query(None, pattern="^(TODO|IN_PROGRESS|DONE)$"),
     priority: Optional[str] = Query(None, pattern="^(LOW|MEDIUM|HIGH)$"),
     assignee_id: Optional[int] = Query(None, gt=0),

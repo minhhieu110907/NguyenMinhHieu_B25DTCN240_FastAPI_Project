@@ -19,7 +19,7 @@ class Scope(str, Enum):
     MEMBER_ADD = "member:add"
     MEMBER_REMOVE = "member:remove"
 
-    # TASK (Công việc)
+    # TASK (Work items)
     TASK_READ = "task:read"
     TASK_CREATE = "task:create"
     TASK_UPDATE = "task:update"

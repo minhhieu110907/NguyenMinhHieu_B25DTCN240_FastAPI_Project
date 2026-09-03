@@ -24,7 +24,7 @@ router = APIRouter(prefix="/projects/{project_id}/members", tags=["Project Membe
     ],
 )
 def get_project_members(
-    project_id: int = Path(..., description="ID của dự án"),
+    project_id: int = Path(..., description="Project ID"),
     db: Session = Depends(get_db),
 ):
     service = ProjectMemberService(db)
@@ -42,7 +42,7 @@ def get_project_members(
 )
 def add_project_member(
     payload: ProjectMemberCreate,
-    project_id: int = Path(..., description="ID của dự án"),
+    project_id: int = Path(..., description="Project ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -59,8 +59,8 @@ def add_project_member(
     ],
 )
 def remove_project_member(
-    project_id: int = Path(..., description="ID của dự án"),
-    user_id: int = Path(..., description="ID của user muốn xóa"),
+    project_id: int = Path(..., description="Project ID"),
+    user_id: int = Path(..., description="ID of the user to remove"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

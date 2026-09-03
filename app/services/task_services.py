@@ -25,19 +25,18 @@ class TaskService:
             member = self.project_repo.get_member(project_id, assignee_id)
             if not member:
                 raise BadRequestException(
-                    message="Người được giao việc (assignee) không phải là thành viên của dự án này.",
+                    message="The assignee is not a member of this project.",
                     error_code="INVALID_ASSIGNEE"
                 )
 
     def create_task(self, payload: TaskCreate, current_user: User) -> Task:
         project = self.project_repo.get_by_id(payload.project_id)
         if not project:
-            raise NotFoundException("Dự án không tồn tại hoặc đã bị xóa.")
+            raise NotFoundException("The project does not exist or has been deleted.")
 
         self._validate_assignee(payload.project_id, payload.assignee_id)
 
         try:
-            # 1. Tạo task
             task = self.task_repo.create_task(
                 project_id=payload.project_id,
                 creator_id=current_user.id,
@@ -49,7 +48,6 @@ class TaskService:
                 assignee_id=payload.assignee_id
             )
 
-            # 2. Ghi DB Activity Log
             self.project_repo.add_activity_log(
                 user_id=current_user.id,
                 actor_role=getattr(current_user, "role", "USER"),
@@ -65,10 +63,7 @@ class TaskService:
                 }
             )
 
-            # 3. Commit
             self.db.commit()
-
-            # 4. Console log sau commit
             logger.info(
                 f"AUDIT | User [ID: {current_user.id}] created Task [ID: {task.id}] "
                 f"in Project [ID: {payload.project_id}]"
@@ -127,19 +122,17 @@ class TaskService:
                 disallowed_fields = [k for k in update_dict.keys() if k != "status"]
                 if disallowed_fields:
                     raise ForbiddenError(
-                        f"Assignee chỉ được cập nhật trạng thái (status), không được sửa: {', '.join(disallowed_fields)}"
+                        f"Assignee can only update the status field, cannot change: {', '.join(disallowed_fields)}"
                     )
             else:
-                raise ForbiddenError("Bạn không có quyền chỉnh sửa task này.")
+                raise ForbiddenError("You do not have permission to edit this task.")
 
         if "assignee_id" in update_dict:
             self._validate_assignee(task.project_id, update_dict["assignee_id"])
 
         try:
-            # 1. Update task
             self.task_repo.update_task(task, update_dict)
 
-            # 2. Ghi DB Activity Log
             self.project_repo.add_activity_log(
                 user_id=current_user.id,
                 actor_role=getattr(current_user, "role", "USER"),
@@ -149,10 +142,8 @@ class TaskService:
                 payload={"project_id": task.project_id, "updated_fields": list(update_dict.keys())}
             )
 
-            # 3. Commit
             self.db.commit()
 
-            # 4. Console log
             logger.info(
                 f"AUDIT | User [ID: {current_user.id}] updated Task [ID: {task.id}] "
                 f"with fields: {list(update_dict.keys())}"
@@ -175,10 +166,8 @@ class TaskService:
             task_id = task.id
             project_id = task.project_id
 
-            # 1. Xóa task
             self.task_repo.delete_task(task)
 
-            # 2. Ghi DB Activity Log
             self.project_repo.add_activity_log(
                 user_id=current_user.id,
                 actor_role=getattr(current_user, "role", "USER"),
@@ -188,10 +177,8 @@ class TaskService:
                 payload={"project_id": project_id, "title": task.title}
             )
 
-            # 3. Commit
             self.db.commit()
 
-            # 4. Console log
             logger.info(
                 f"AUDIT | User [ID: {current_user.id}] deleted Task [ID: {task_id}] "
                 f"from Project [ID: {project_id}]"
@@ -207,7 +194,7 @@ class TaskService:
     def create_comment(self, payload: CommentCreate, current_user: User) -> Comment:
         task = self.task_repo.get_by_id(payload.task_id)
         if not task:
-            raise NotFoundException("Task không tồn tại hoặc dự án đã bị xóa.")
+            raise NotFoundException("Task does not exist or the project has been deleted.")
 
         try:
             comment = self.task_repo.add_comment(
@@ -218,7 +205,7 @@ class TaskService:
             self.db.commit()
             self.db.refresh(comment)
 
-            # Comment chỉ ghi console log, không nhân đôi vào DB ActivityLog
+            # Comment only writes console log, not duplicated into DB ActivityLog
             logger.info(
                 f"AUDIT | User [ID: {current_user.id}] commented on Task [ID: {payload.task_id}]"
             )

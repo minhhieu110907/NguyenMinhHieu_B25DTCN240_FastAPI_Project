@@ -21,7 +21,6 @@ class ProjectRepository:
         entity_id: int,
         payload: Optional[dict] = None
     ) -> None:
-        """Ghi log vào session (Chạy trong RAM, không sinh I/O network riêng)."""
         log = ActivityLog(
             user_id=user_id,
             actor_role=actor_role,

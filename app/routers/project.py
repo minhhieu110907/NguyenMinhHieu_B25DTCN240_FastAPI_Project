@@ -38,7 +38,7 @@ def create_project(
     dependencies=[Depends(RequireScopes({Scope.PROJECT_READ}))],
 )
 def get_my_projects(
-    search: Optional[str] = Query(None, description="Tìm kiếm theo tên dự án"),
+    search: Optional[str] = Query(None, description="Search by project name"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -62,7 +62,7 @@ def get_my_projects(
     ],
 )
 def get_project_detail(
-    project_id: int = Path(..., description="ID của dự án"),
+    project_id: int = Path(..., description="Project ID"),
     db: Session = Depends(get_db),
 ):
     service = ProjectService(db)
@@ -79,7 +79,7 @@ def get_project_detail(
 )
 def update_project(
     payload: ProjectUpdate,
-    project_id: int = Path(..., description="ID của dự án"),
+    project_id: int = Path(..., description="Project ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -101,7 +101,7 @@ def update_project(
     ],
 )
 def delete_project(
-    project_id: int = Path(..., description="ID của dự án"),
+    project_id: int = Path(..., description="Project ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

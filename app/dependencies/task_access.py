@@ -22,7 +22,7 @@ class RequireTaskAccess:
 
     def __call__(
         self,
-        task_id: int = Path(..., description="ID của Task"),
+        task_id: int = Path(..., description="Task ID"),
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
     ) -> Task:
@@ -33,7 +33,7 @@ class RequireTaskAccess:
             .first()
         )
         if not task:
-            raise NotFoundException("Task không tồn tại hoặc dự án đã bị xóa.")
+            raise NotFoundException("Task does not exist or the project has been deleted.")
 
         if current_user.system_role_id == 1:
             return task
@@ -41,7 +41,7 @@ class RequireTaskAccess:
         project_repo = ProjectRepository(db)
         member = project_repo.get_member(task.project_id, current_user.id)
         if not member:
-            raise ForbiddenError("Bạn không thuộc dự án chứa task này.")
+            raise ForbiddenError("You are not a member of the project that contains this task.")
 
         role_name = member.project_role.name.upper() if member.project_role else ""
         is_role_allowed = role_name in self.allowed_roles
@@ -49,7 +49,7 @@ class RequireTaskAccess:
 
         if not is_role_allowed:
             if not (self.allow_assignee_override and is_assignee):
-                raise ForbiddenError("Bạn không có quyền thực hiện hành động trên task này.")
+                raise ForbiddenError("You do not have permission to do this action on this task.")
 
         current_user.current_project_role = role_name
         return task

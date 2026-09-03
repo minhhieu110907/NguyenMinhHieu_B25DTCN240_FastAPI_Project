@@ -21,9 +21,9 @@ def get_my_profile(current_user: User = Depends(get_current_user)):
     dependencies=[Depends(RequireScopes({Scope.USER_READ}))]
 )
 def get_all_users(
-    name: Optional[str] = Query(None, description="Tìm theo tên"),
-    email: Optional[str] = Query(None, description="Tìm theo email"),
-    is_active: Optional[bool] = Query(None, description="Trạng thái kích hoạt"),
+    name: Optional[str] = Query(None, description="Search by name"),
+    email: Optional[str] = Query(None, description="Search by email"),
+    is_active: Optional[bool] = Query(None, description="Active status"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)

@@ -10,7 +10,6 @@ from app.core.exceptions import TokenInvalidError, AccountInactiveError, Forbidd
 from app.models.users import User
 from app.repositories.permission_repo import PermissionRepository
 
-# Thay thế OAuth2PasswordBearer bằng HTTPBearer
 security_scheme = HTTPBearer()
 
 def get_current_user(
@@ -39,7 +38,7 @@ class RequireScopes:
 
     def __call__(self, current_user: User = Depends(get_current_user)) -> User:
         if not has_required_scopes(current_user.token_scopes, self.required_scopes):
-            raise ForbiddenError("Bạn không có quyền truy cập tài nguyên này.")
+            raise ForbiddenError("You do not have permission to access this resource.")
         return current_user
 
 
@@ -58,7 +57,7 @@ class RequireCurrentScopes:
         permission_repo = PermissionRepository(db)
         fresh_scopes = permission_repo.get_scopes_by_role_id(current_user.system_role_id)
         if not has_required_scopes(fresh_scopes, self.required_scopes):
-            raise ForbiddenError("Quyền hạn của bạn đã thay đổi. Bạn không thể thực hiện hành động này.")
+            raise ForbiddenError("Your permissions have changed. You cannot do this action.")
             
         return current_user
     

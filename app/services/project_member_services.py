@@ -29,7 +29,7 @@ class ProjectMemberService:
         self, 
         project_id: int, 
         payload: ProjectMemberCreate,
-        current_user: User  # Truyền context user vào Service
+        current_user: User
     ) -> ProjectMember:
         user = self.user_repo.get_user_by_email(payload.email)
         if not user:
@@ -41,8 +41,6 @@ class ProjectMemberService:
                 user_id=user.id,
                 project_role_id=payload.project_role_id
             )
-
-            # 2. Ghi Activity Log trong cùng 1 Transaction
             self.repo.add_activity_log(
                 user_id=current_user.id,
                 actor_role=getattr(current_user, "role", "USER"),
@@ -51,8 +49,6 @@ class ProjectMemberService:
                 entity_id=project_id,
                 payload={"target_user_id": user.id, "role_id": payload.project_role_id}
             )
-
-            # 3. Commit toàn bộ thay đổi
             self.db.commit()
             logger.info(
                 f"AUDIT | User [ID: {current_user.id}] added User [ID: {user.id}] "
@@ -78,7 +74,6 @@ class ProjectMemberService:
             raise NotFoundException("The member does not exist in this project.")
 
         try:
-            # Check Owner với Lock
             is_owner = (
                 member.project_role.name.upper() == "OWNER" 
                 if member.project_role else False
@@ -90,8 +85,6 @@ class ProjectMemberService:
                         message="The last OWNER of the project cannot be deleted.",
                         error_code="LAST_OWNER_REMOVAL"
                     )
-
-            # Check Task chưa hoàn thành
             active_tasks = self.repo.count_active_tasks(project_id, user_id_to_remove)
             if active_tasks > 0:
                 raise ConflictException(
@@ -100,10 +93,8 @@ class ProjectMemberService:
                     details={"active_tasks_count": active_tasks}
                 )
 
-            # Xóa member
             self.repo.delete_member(project_id, user_id_to_remove)
 
-            # Ghi Activity Log
             self.repo.add_activity_log(
                 user_id=current_user.id,
                 actor_role=getattr(current_user, "role", "USER"),

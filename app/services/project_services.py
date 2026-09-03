@@ -22,21 +22,18 @@ class ProjectService:
         current_user: User, 
         owner_role_id: int = 1
     ) -> Project:
-        """Tạo project, gán OWNER và ghi Activity Log trong 1 transaction."""
+        """Create project, assign OWNER, and write Activity Log in 1 transaction."""
         try:
-            # 1. Tạo project
             project = self.repo.create(
                 name=name,
                 description=description,
                 created_by=current_user.id
             )
-            # 2. Gán quyền OWNER cho creator
             self.repo.add_member(
                 project_id=project.id,
                 user_id=current_user.id,
                 project_role_id=owner_role_id
             )
-            # 3. Ghi Activity Log vào DB Session
             self.repo.add_activity_log(
                 user_id=current_user.id,
                 actor_role=getattr(current_user, "role", "USER"),
@@ -45,8 +42,6 @@ class ProjectService:
                 entity_id=project.id,
                 payload={"name": project.name, "description": project.description}
             )
-
-            # 4. Commit toàn bộ
             self.db.commit()
             self.db.refresh(project)
 
@@ -93,13 +88,11 @@ class ProjectService:
     ) -> Project:
         project = self.get_project_detail(project_id)
         try:
-            # 1. Update Project
             updated_project = self.repo.update(
                 project=project,
                 name=name,
                 description=description
             )
-            # 2. Ghi Activity Log
             self.repo.add_activity_log(
                 user_id=current_user.id,
                 actor_role=getattr(current_user, "role", "USER"),
@@ -109,11 +102,9 @@ class ProjectService:
                 payload={"name": name, "description": description}
             )
 
-            # 3. Commit
             self.db.commit()
             self.db.refresh(updated_project)
 
-            # 4. Console log
             logger.info(
                 f"AUDIT | User [ID: {current_user.id}] updated Project [ID: {project_id}]"
             )
@@ -129,10 +120,7 @@ class ProjectService:
     def soft_delete_project(self, project_id: int, current_user: User) -> None:
         project = self.get_project_detail(project_id)
         try:
-            # 1. Soft delete
             self.repo.soft_delete(project)
-
-            # 2. Ghi Activity Log
             self.repo.add_activity_log(
                 user_id=current_user.id,
                 actor_role=getattr(current_user, "role", "USER"),
@@ -142,10 +130,7 @@ class ProjectService:
                 payload={"project_name": project.name}
             )
 
-            # 3. Commit
             self.db.commit()
-
-            # 4. Console log
             logger.info(
                 f"AUDIT | User [ID: {current_user.id}] soft-deleted Project [ID: {project_id}]"
             )
