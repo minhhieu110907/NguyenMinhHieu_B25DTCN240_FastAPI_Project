@@ -1,5 +1,5 @@
 from typing import List, Optional, Literal
-from fastapi import APIRouter, Depends, status, Path, Query, Response
+from fastapi import APIRouter, Depends, status, Path, Query, Response,Request
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
@@ -90,21 +90,23 @@ def get_task_detail(
 @router.patch(
     "/tasks/{task_id}",
     response_model=TaskResponse,
-    description=(
-        "For `due_date`, use the format "
-        "`YYYY-MM-DDTHH:MM:SS`.\n\n"
-        "Example: `2026-08-30T15:30:00`."
-    ),
     dependencies=[Depends(RequireScopes({Scope.TASK_UPDATE}))]
 )
 def update_task(
+    request: Request,
     payload: TaskUpdate,
     task: Task = Depends(RequireTaskAccess(allowed_project_roles=["OWNER", "MEMBER"], allow_assignee_override=True)),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     service = TaskService(db)
-    return service.update_task_with_matrix(task, payload, current_user=current_user)
+    project_role = getattr(request.state, "project_role", "")
+    return service.update_task_with_matrix(
+        task=task, 
+        payload=payload, 
+        current_user=current_user,
+        project_role=project_role
+    )
 
 
 @router.delete(

@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import Depends, Path
+from fastapi import Depends, Path, Request
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
@@ -22,6 +22,7 @@ class RequireTaskAccess:
 
     def __call__(
         self,
+        request: Request,
         task_id: int = Path(..., description="Task ID"),
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
@@ -36,6 +37,7 @@ class RequireTaskAccess:
             raise NotFoundException("Task does not exist or the project has been deleted.")
 
         if current_user.system_role_id == 1:
+            request.state.project_role = "SYSTEM_ADMIN"
             return task
 
         project_repo = ProjectRepository(db)
@@ -51,5 +53,5 @@ class RequireTaskAccess:
             if not (self.allow_assignee_override and is_assignee):
                 raise ForbiddenError("You do not have permission to do this action on this task.")
 
-        current_user.current_project_role = role_name
+        request.state.project_role = role_name
         return task

@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     RL_FAIL_MODE:str="closed"
     USE_TRUSTED_PROXY: bool = False
 
+    # DEFAULT_SEED_PASSWORD
+    DEFAULT_SEED_PASSWORD: str
     @property
     def is_production(self):
         return self.ENVIRONMEMT == "production"

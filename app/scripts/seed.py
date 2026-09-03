@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from sqlalchemy.orm import Session
 from app.database.database import SessionLocal
-
+from app.core.config import settings
 from app.core.logger import setup_global_logging
 
 from app.models.permissions import Permission
@@ -26,7 +26,6 @@ from app.models.activity_logs import ActivityLog
 from app.security.password import hash_password
 from app.security.scopes import Scope
 
-
 # Configure logging
 setup_global_logging()
 logger = logging.getLogger("app.seed")
@@ -41,7 +40,7 @@ def seed_database(db: Session):
             )
             return
 
-        # Seed Permissions
+        # 1. Seed Permissions
         logger.info("Seeding Permissions...")
 
         perms = [
@@ -55,29 +54,18 @@ def seed_database(db: Session):
         db.add_all(perms)
         db.flush()
 
-        # Seed Roles
+        # 2. Seed Roles 
         logger.info("Seeding Roles...")
 
-        role_admin = Role(
-            id=1,
-            name="SYSTEM_ADMIN",
-            description="System Administrator"
-        )
+        role_admin = Role(id=1, name="SYSTEM_ADMIN", description="System Administrator")
+        role_user = Role(id=2, name="USER", description="Standard User")
+        role_owner = Role(id=3, name="OWNER", description="Project Owner")
+        role_member = Role(id=4, name="MEMBER", description="Project Member")
 
-        role_user = Role(
-            id=2,
-            name="USER",
-            description="Standard User"
-        )
-
-        db.add_all([
-            role_admin,
-            role_user
-        ])
-
+        db.add_all([role_admin, role_user, role_owner, role_member])
         db.flush()
 
-        # Assign all permissions to SYSTEM_ADMIN
+        # 3. Assign all Permissions for SYSTEM_ADMIN
         for permission in perms:
             db.add(
                 RolePermission(
@@ -86,20 +74,44 @@ def seed_database(db: Session):
                 )
             )
 
-        # Assign basic permission to USER
-        db.add(
-            RolePermission(
-                role_id=role_user.id,
-                permission_id=perms[2].id
-            )
-        )
+        # 4. Assign business Scope for USER 
+        user_allowed_scopes = {
+            Scope.USER_UPDATE,
+            Scope.PROJECT_READ,
+            Scope.PROJECT_CREATE,
+            Scope.PROJECT_UPDATE,
+            Scope.PROJECT_DELETE,
+            Scope.MEMBER_READ,
+            Scope.MEMBER_ADD,
+            Scope.MEMBER_REMOVE,
+            Scope.TASK_READ,
+            Scope.TASK_CREATE,
+            Scope.TASK_UPDATE,
+            Scope.TASK_DELETE,
+            Scope.COMMENT_READ,
+            Scope.COMMENT_CREATE,
+            Scope.COMMENT_DELETE,
+            Scope.ATTACHMENT_UPLOAD,
+            Scope.ATTACHMENT_DELETE,
+        }
+
+        for perm in perms:
+            if perm.code in [s.value for s in user_allowed_scopes]:
+                db.add(
+                    RolePermission(
+                        role_id=role_user.id,
+                        permission_id=perm.id
+                    )
+                )
 
         db.flush()
 
-        # Seed Users
+        # 5. Seed Users 
         logger.info("Seeding Users...")
 
-        default_password = hash_password("Password@123")
+        default_password = hash_password(
+            getattr(settings, "DEFAULT_SEED_PASSWORD", "Password@123")
+        )
 
         admin_user = User(
             id=1,
@@ -128,15 +140,24 @@ def seed_database(db: Session):
             system_role_id=role_user.id
         )
 
+        dev_user_3 = User(
+            id=4,
+            email="minhhao@gmail.com",
+            password_hash=default_password,
+            full_name="Hoang",
+            is_active=True,
+            system_role_id=role_user.id
+        )
+
         db.add_all([
             admin_user,
             dev_user_1,
-            dev_user_2
+            dev_user_2,
+            dev_user_3
         ])
-
         db.flush()
 
-        # Seed Refresh Tokens
+        # 6. Seed Refresh Tokens
         logger.info("Seeding Refresh Tokens...")
 
         db.add(
@@ -148,10 +169,9 @@ def seed_database(db: Session):
                 is_revoked=False
             )
         )
-
         db.flush()
 
-        # Seed Projects
+        # 7. Seed Projects
         logger.info("Seeding Projects and Members...")
 
         project = Project(
@@ -164,31 +184,27 @@ def seed_database(db: Session):
         db.add(project)
         db.flush()
 
-        # Seed Project Members
-        #
-        # ProjectMember does NOT have an id column.
-        # Primary key = project_id + user_id.
+        # 8. Seed Project Members 
         db.add_all([
             ProjectMember(
                 project_id=project.id,
                 user_id=admin_user.id,
-                project_role_id=role_admin.id
+                project_role_id=role_owner.id
             ),
             ProjectMember(
                 project_id=project.id,
                 user_id=dev_user_1.id,
-                project_role_id=role_user.id
+                project_role_id=role_member.id
             ),
             ProjectMember(
                 project_id=project.id,
                 user_id=dev_user_2.id,
-                project_role_id=role_user.id
+                project_role_id=role_member.id
             )
         ])
-
         db.flush()
 
-        # Seed Tasks
+        # 9. Seed Tasks
         logger.info("Seeding Tasks...")
 
         now_utc = datetime.now(timezone.utc)
@@ -226,15 +242,10 @@ def seed_database(db: Session):
             due_date=now_utc + timedelta(days=5)
         )
 
-        db.add_all([
-            task_1,
-            task_2,
-            task_3
-        ])
-
+        db.add_all([task_1, task_2, task_3])
         db.flush()
 
-        # Seed Comments
+        # 10. Seed Comments
         logger.info("Seeding Comments and Attachments...")
 
         db.add_all([
@@ -251,10 +262,9 @@ def seed_database(db: Session):
                 content="Stuck on Exception Handler bug. Will fix this morning."
             )
         ])
-
         db.flush()
 
-        # Seed Attachments
+        # 11. Seed Attachments
         db.add(
             Attachment(
                 id=1,
@@ -263,16 +273,16 @@ def seed_database(db: Session):
                 file_url="https://www.facebook.com/search/top?q=liverpool%20fc"
             )
         )
-
         db.flush()
 
-        # Seed Activity Logs
+        # 12. Seed Activity Logs
         logger.info("Seeding Activity Logs...")
 
         db.add(
             ActivityLog(
                 id=1,
                 user_id=admin_user.id,
+                actor_role="SYSTEM_ADMIN",
                 action="CREATE",
                 entity_type="PROJECT",
                 entity_id=project.id,
@@ -281,124 +291,74 @@ def seed_database(db: Session):
                 }
             )
         )
-
         db.flush()
-
-        # Commit transaction
         db.commit()
-
         logger.info("DATABASE SEEDING COMPLETED SUCCESSFULLY!")
 
     except Exception as e:
         db.rollback()
-
-        logger.error(
-            f"Seeding failed, transaction rolled back: {e}"
-        )
-
+        logger.error(f"Seeding failed, transaction rolled back: {e}")
         raise
 
 
 def reset_data(db: Session):
     """
-    Reset all application data.
-
-    WARNING:
-    This function permanently deletes all data from the tables
-    used by the seed script.
-
-    This function should ONLY be used in development/testing.
+    Xóa sạch dữ liệu theo đúng thứ tự ràng buộc khóa ngoại (Foreign Key Constraints).
     """
-
     try:
         logger.warning("DATABASE RESET STARTED")
-        logger.warning(
-            "All application data in seeded tables will be deleted."
-        )
+        logger.warning("All application data in seeded tables will be deleted.")
 
-        # Delete Activity Logs
+        # 1. Activity Logs
         logger.info("Deleting Activity Logs...")
-        db.query(ActivityLog).delete(
-            synchronize_session=False
-        )
+        db.query(ActivityLog).delete(synchronize_session=False)
 
-        # Delete Attachments
+        # 2. Attachments
         logger.info("Deleting Attachments...")
-        db.query(Attachment).delete(
-            synchronize_session=False
-        )
+        db.query(Attachment).delete(synchronize_session=False)
 
-        # Delete Comments
+        # 3. Comments
         logger.info("Deleting Comments...")
-        db.query(Comment).delete(
-            synchronize_session=False
-        )
+        db.query(Comment).delete(synchronize_session=False)
 
-        # Delete Tasks
+        # 4. Tasks
         logger.info("Deleting Tasks...")
-        db.query(Task).delete(
-            synchronize_session=False
-        )
+        db.query(Task).delete(synchronize_session=False)
 
-        # Delete Project Members
-        #
-        # ProjectMember has composite primary key:
-        # project_id + user_id
+        # 5. Project Members
         logger.info("Deleting Project Members...")
-        db.query(ProjectMember).delete(
-            synchronize_session=False
-        )
+        db.query(ProjectMember).delete(synchronize_session=False)
 
-        # Delete Projects
+        # 6. Projects
         logger.info("Deleting Projects...")
-        db.query(Project).delete(
-            synchronize_session=False
-        )
+        db.query(Project).delete(synchronize_session=False)
 
-        # Delete Refresh Tokens
+        # 7. Refresh Tokens
         logger.info("Deleting Refresh Tokens...")
-        db.query(RefreshToken).delete(
-            synchronize_session=False
-        )
+        db.query(RefreshToken).delete(synchronize_session=False)
 
-        # Delete Users
+        # 8. Users
         logger.info("Deleting Users...")
-        db.query(User).delete(
-            synchronize_session=False
-        )
+        db.query(User).delete(synchronize_session=False)
 
-        # Delete Role Permissions
-        #
-        # RolePermission has composite primary key:
-        # role_id + permission_id
+        # 9. Role Permissions
         logger.info("Deleting Role Permissions...")
-        db.query(RolePermission).delete(
-            synchronize_session=False
-        )
+        db.query(RolePermission).delete(synchronize_session=False)
 
-        # Delete Roles
+        # 10. Roles
         logger.info("Deleting Roles...")
-        db.query(Role).delete(
-            synchronize_session=False
-        )
+        db.query(Role).delete(synchronize_session=False)
 
-        # Delete Permissions
+        # 11. Permissions
         logger.info("Deleting Permissions...")
-        db.query(Permission).delete(
-            synchronize_session=False
-        )
+        db.query(Permission).delete(synchronize_session=False)
 
         db.commit()
-
         logger.info("DATABASE RESET COMPLETED SUCCESSFULLY!")
 
     except Exception as e:
         db.rollback()
-
-        logger.error(
-            f"Database reset failed, transaction rolled back: {e}"
-        )
-
+        logger.error(f"Database reset failed, transaction rolled back: {e}")
         raise
 
 
@@ -406,27 +366,12 @@ if __name__ == "__main__":
     db = SessionLocal()
 
     try:
-        # Development reset mode
-        #
-        # Usage:
-        #
-        #   python -m app.scripts.seed
-        #
-        #   python -m app.scripts.seed --reset
-
         if "--reset" in sys.argv:
             logger.warning("--reset argument detected.")
-
             reset_data(db)
-
-            logger.info(
-                "Starting database seeding after reset..."
-            )
-
+            logger.info("Starting database seeding after reset...")
             seed_database(db)
-
         else:
             seed_database(db)
-
     finally:
         db.close()

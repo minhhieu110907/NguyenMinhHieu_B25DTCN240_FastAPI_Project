@@ -20,7 +20,7 @@ class ProjectService:
         name: str, 
         description: Optional[str], 
         current_user: User, 
-        owner_role_id: int = 1
+        owner_role_id: int = 3
     ) -> Project:
         """Create project, assign OWNER, and write Activity Log in 1 transaction."""
         try:
@@ -45,7 +45,6 @@ class ProjectService:
             self.db.commit()
             self.db.refresh(project)
 
-            # 5. In Console Log SAU KHI COMMIT THÀNH CÔNG
             logger.info(
                 f"AUDIT | User [ID: {current_user.id}] created Project "
                 f"[ID: {project.id}, Name: '{project.name}']"

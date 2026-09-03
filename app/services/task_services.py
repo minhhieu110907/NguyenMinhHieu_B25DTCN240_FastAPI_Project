@@ -107,14 +107,15 @@ class TaskService:
         self,
         task: Task,
         payload: TaskUpdate,
-        current_user: User
+        current_user: User,
+        project_role: str = ""
     ) -> Task:
         update_dict = payload.model_dump(exclude_unset=True)
         if not update_dict:
             return task
 
-        is_admin = getattr(current_user, "system_role_id", None) == 1
-        is_owner = getattr(current_user, "current_project_role", "") == "OWNER"
+        is_admin = current_user.system_role_id == 1
+        is_owner = project_role.upper() == "OWNER"
         is_assignee = task.assignee_id == current_user.id
 
         if not (is_admin or is_owner):
@@ -132,10 +133,11 @@ class TaskService:
 
         try:
             self.task_repo.update_task(task, update_dict)
+            actor_role = "SYSTEM_ADMIN" if is_admin else (project_role or "MEMBER")
 
             self.project_repo.add_activity_log(
                 user_id=current_user.id,
-                actor_role=getattr(current_user, "role", "USER"),
+                actor_role=actor_role,
                 action="TASK_UPDATE",
                 entity_type="TASK",
                 entity_id=task.id,
@@ -143,23 +145,14 @@ class TaskService:
             )
 
             self.db.commit()
-
-            logger.info(
-                f"AUDIT | User [ID: {current_user.id}] updated Task [ID: {task.id}] "
-                f"with fields: {list(update_dict.keys())}"
-            )
-
-            return self.task_repo.get_by_id(task.id)
-
+            return task
         except (BadRequestException, ForbiddenError):
             self.db.rollback()
             raise
-        except Exception as e:
+        except Exception:
             self.db.rollback()
-            logger.error(
-                f"ERROR | Failed to update Task [ID: {task.id}] by User [ID: {current_user.id}]: {str(e)}"
-            )
-            raise e
+            logger.exception(f"ERROR | Failed to update Task [ID: {task.id}]")
+            raise
 
     def delete_task(self, task: Task, current_user: User) -> None:
         try:

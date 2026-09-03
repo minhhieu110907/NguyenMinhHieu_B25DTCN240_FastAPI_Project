@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 from app.dependencies.dependencies import get_current_user
 from app.database.database import get_db
 from app.models.users import User
-from app.repositories.project_repo import ProjectRepository
+from app.models.projects import Project
+from app.models.project_members import ProjectMember
+from app.models.roles import Role
 from app.core.exceptions import ForbiddenError, NotFoundException
 
 
@@ -17,28 +19,34 @@ class RequireProjectRole:
         project_id: int = Path(..., description="Project ID"),
         current_user: User = Depends(get_current_user), 
         db: Session = Depends(get_db)
-    ) -> User:
-        repo = ProjectRepository(db)
+    ) -> None:
+        row = (
+            db.query(
+                Project.id,
+                ProjectMember.user_id,
+                Role.name.label("role_name")
+            )
+            .outerjoin(
+                ProjectMember,
+                (ProjectMember.project_id == Project.id) & (ProjectMember.user_id == current_user.id)
+            )
+            .outerjoin(Role, Role.id == ProjectMember.project_role_id)
+            .filter(Project.id == project_id, Project.is_deleted == False)
+            .first()
+        )
 
-        project = repo.get_by_id(project_id)
-        if not project:
+        if not row:
             raise NotFoundException("The project does not exist or has been deleted.")
-
-        # System Admin Override
         if current_user.system_role_id == 1:
-            return current_user
+            return
 
-        # Check role
-        member = repo.get_member(project_id, current_user.id)
-        if not member:
+        _, member_id, role_name = row
+
+        if member_id is None:
             raise ForbiddenError("You are not a member of this project.")
 
-        role_name = member.project_role.name.upper() if member.project_role else ""
-        if role_name not in self.allowed_roles:
+        actual_role = (role_name or "").upper()
+        if actual_role not in self.allowed_roles:
             raise ForbiddenError(
                 f"Action denied. Required role: {', '.join(self.allowed_roles)} in the project."
             )
-
-        current_user.current_project_role = role_name
-        return current_user
-    
